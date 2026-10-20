@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Крутилка Машин</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0c0c0c;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+    .header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(180deg,#1a1a1a,#121212);border-bottom:1px solid #2a2a2a;position:relative;z-index:50}
+    .hamburger{width:26px;height:20px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer}
+    .hamburger span{display:block;height:2.5px;background:#fff;border-radius:2px}
+    .header-title{font-size:17px;font-weight:700;position:absolute;left:50%;transform:translateX(-50%)}
+    .balance{font-size:15px;font-weight:700;color:#ff9500;background:#1f1f1f;padding:6px 12px;border-radius:20px;border:1px solid #333}
+    .free-boost{position:absolute;top:58px;right:12px;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#000;font-weight:800;font-size:13px;padding:8px 14px;border-radius:20px;z-index:40;box-shadow:0 4px 15px rgba(245,158,11,.4);animation:pulse 1.5s infinite;display:none}
+    .free-boost.show{display:block}
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+    .boost-active{position:absolute;top:58px;right:12px;background:#166534;color:#4ade80;font-weight:700;font-size:12px;padding:6px 12px;border-radius:16px;z-index:40;display:none}
+    .boost-active.show{display:block}
+    .side-menu{position:fixed;top:0;left:-280px;width:280px;height:100%;background:#141414;z-index:100;transition:left .3s ease;display:flex;flex-direction:column;border-right:1px solid #2a2a2a}
+    .side-menu.open{left:0}
+    .menu-header{padding:20px 18px;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center}
+    .close-menu{background:none;border:none;color:#fff;font-size:26px;cursor:pointer}
+    .menu-items{padding:10px 0;flex:1;overflow-y:auto}
+    .menu-item{padding:15px 20px;font-size:16px;display:flex;align-items:center;gap:14px;cursor:pointer}
+    .menu-item:active{background:#222}
+    .menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;opacity:0;visibility:hidden;transition:.3s}
+    .menu-overlay.show{opacity:1;visibility:visible}
+    .main{flex:1;display:flex;flex-direction:column;position:relative}
+    .spinner-view{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0 0}
+    .current-country{text-align:center;font-size:14px;color:#aaa;margin-bottom:6px}
+    .spinner-wrapper{width:100%;max-width:440px;padding:0 10px;position:relative}
+    .spinner-container{width:100%;height:115px;position:relative;overflow:hidden;border-radius:16px;background:#111;box-shadow:inset 0 0 30px rgba(0,0,0,.8)}
+    .spinner-container.spinning .spinner-list{filter:blur(1.5px)}
+    .spinner-list{position:absolute;top:0;left:0;height:100%;display:flex;align-items:center;will-change:transform}
+    .car-item{width:140px;height:95px;margin:0 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;background:linear-gradient(145deg,#1e1e1e,#161616);border:1px solid #2a2a2a;position:relative}
+    .car-item::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--rarity-color,#444)}
+    .car-emoji{font-size:26px;margin-bottom:3px}
+    .car-name{font-size:11px;font-weight:700;text-align:center;padding:0 4px}
+    .car-rarity{font-size:10px;margin-top:2px;font-weight:600}
+    .center-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:148px;height:103px;border:2.5px solid #ff6b00;border-radius:16px;pointer-events:none;z-index:10;box-shadow:0 0 18px rgba(255,107,0,.4)}
+    .center-frame.spinning{animation:glowPulse .6s infinite alternate;border-color:#ff9500}
+    @keyframes glowPulse{from{box-shadow:0 0 15px rgba(255,107,0,.5)}to{box-shadow:0 0 35px rgba(255,149,0,.8)}}
+    .center-frame.stopped{animation:stopFlash .6s ease}
+    @keyframes stopFlash{0%{box-shadow:0 0 40px #fff;border-color:#fff}100%{box-shadow:0 0 18px rgba(255,107,0,.4);border-color:#ff6b00}}
+    .spark{position:absolute;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:20;animation:sparkFly .8s ease-out forwards}
+    @keyframes sparkFly{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}}
+    .bottom-panel{padding:12px 14px 18px;background:#111;border-top:1px solid #222}
+    .rarity-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+    .rarity-btn{flex:1;min-width:70px;padding:8px 4px;border-radius:12px;border:2px solid #333;background:#1a1a1a;color:#aaa;font-size:11px;font-weight:700;text-align:center;cursor:pointer}
+    .rarity-btn.active{border-color:var(--r-color);background:#1f1a12;color:#fff}
+    .quantity-row{display:flex;gap:8px;margin-bottom:12px}
+    .qty-btn{flex:1;padding:12px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;font-size:15px;font-weight:800;cursor:pointer}
+    .qty-btn.active{border-color:#ff6b00;background:#2a1a0a;color:#ff9500}
+    .spin-btn{width:100%;padding:15px;font-size:17px;font-weight:800;border:none;border-radius:16px;background:linear-gradient(90deg,#ff6b00,#ff9500);color:#000;cursor:pointer;box-shadow:0 4px 18px rgba(255,107,0,.35)}
+    .spin-btn:disabled{opacity:.4;box-shadow:none}
+    .cost-preview{text-align:center;font-size:13px;color:#888;margin-bottom:8px}
+    .result{text-align:center;margin-top:8px;font-size:13px;color:#ff9500;min-height:18px}
+    .screen{display:none;flex:1;flex-direction:column;padding:14px;overflow-y:auto}
+    .screen.active{display:flex}
+    .screen-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .screen-title{font-size:20px;font-weight:700}
+    .back-btn{background:#222;color:#fff;border:none;padding:8px 14px;border-radius:12px;font-size:14px;font-weight:600}
+    .garage-item,.market-item,.exchange-row{background:#161616;border-radius:14px;padding:13px 15px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;border:1px solid #222}
+    .item-name{font-weight:700;font-size:14px}
+    .item-info{font-size:12px;color:#999;margin-top:3px}
+    .action-btn{background:#1a2e1a;color:#4ade80;border:1px solid #4ade80;padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700}
+    .action-btn.buy{background:#1a1a2e;color:#60a5fa;border-color:#60a5fa}
+    .empty{text-align:center;color:#555;margin-top:60px;font-size:16px}
+    .country-item{background:#161616;border-radius:14px;padding:15px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border:2px solid transparent}
+    .country-item.active{border-color:#ff6b00;background:#1f150c}
+    .country-name{font-size:15px;font-weight:700}
+    .country-meta{font-size:12px;color:#888;margin-top:2px}
+    .country-balance{font-size:14px;font-weight:700;color:#ff9500}
+    .exchange-form{background:#161616;border-radius:16px;padding:16px;margin-bottom:16px}
+    .exchange-row-select{display:flex;gap:10px;margin-bottom:12px}
+    .exchange-select{flex:1;padding:12px;border-radius:12px;border:1px solid #333;background:#1a1a1a;color:#fff;font-size:14px}
+    .exchange-amount{width:100%;padding:14px;border-radius:12px;border:1px solid #333;background:#1a1a1a;color:#fff;font-size:18px;font-weight:700;margin-bottom:12px}
+    .exchange-result{text-align:center;font-size:16px;color:#4ade80;margin-bottom:14px;min-height:24px}
+    .exchange-btn{width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(90deg,#10b981,#34d399);color:#000;font-size:16px;font-weight:800}
+    .market-tabs{display:flex;gap:8px;margin-bottom:14px}
+    .market-tab{flex:1;padding:10px;text-align:center;border-radius:12px;background:#1a1a1a;border:2px solid #333;font-weight:700;font-size:14px;cursor:pointer}
+    .market-tab.active{border-color:#ff6b00;background:#2a1a0a;color:#ff9500}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;padding:20px}
+    .modal.active{display:flex;animation:modalIn .35s ease}
+    @keyframes modalIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+    .modal-content{background:linear-gradient(160deg,#1c1c1c,#141414);border-radius:22px;padding:26px 22px;width:100%;max-width:340px;text-align:center;border:1px solid #2a2a2a}
+    .modal-rarity{display:inline-block;padding:5px 14px;border-radius:30px;font-size:13px;font-weight:800;margin-bottom:10px}
+    .rarity-common{background:#2a2a2a;color:#bbb}
+    .rarity-epic{background:#3b0764;color:#d8b4fe}
+    .rarity-legendary{background:#78350f;color:#fcd34d}
+    .rarity-mythic{background:#9f1239;color:#fda4af}
+    .modal-car{font-size:22px;color:#fff;font-weight:800;margin:6px 0}
+    .modal-country{font-size:13px;color:#999}
+    .modal-buttons{display:flex;gap:10px;margin-top:20px}
+    .modal-buttons button{flex:1;padding:13px;border-radius:14px;border:none;font-weight:800;font-size:15px}
+    .btn-garage{background:linear-gradient(90deg,#ff6b00,#ff9500);color:#000}
+    .btn-sell{background:#222;color:#fff;border:1px solid #333}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
+    <div class="header-title">🚗 Крутилка</div>
+    <div class="balance" id="balance">—</div>
+  </div>
+  <div class="free-boost" id="freeBoostBtn">🎁 Бесплатный ×10</div>
+  <div class="boost-active" id="boostActive">×10 активен · <span id="boostTimer">60:00</span></div>
+
+  <div class="menu-overlay" id="menuOverlay"></div>
+  <div class="side-menu" id="sideMenu">
+    <div class="menu-header"><h2>Меню</h2><button class="close-menu" id="closeMenu">×</button></div>
+    <div class="menu-items">
+      <div class="menu-item" id="menuGarage">🏎 Мой гараж</div>
+      <div class="menu-item" id="menuCountries">🌍 Выбрать страну</div>
+      <div class="menu-item" id="menuExchange">💱 Обмен валют</div>
+      <div class="menu-item" id="menuMarket">🏪 Рынок</div>
+      <div class="menu-item" id="menuSpin">🎰 Крутить</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="spinner-view" id="spinnerView">
+      <div class="current-country" id="currentCountryLabel">Выберите страну</div>
+      <div class="spinner-wrapper">
+        <div class="spinner-container" id="spinnerContainer">
+          <div class="center-frame" id="centerFrame"></div>
+          <div class="spinner-list" id="spinnerList"></div>
+        </div>
+      </div>
+      <div class="result" id="result"></div>
+    </div>
+
+    <div class="screen" id="garageView">
+      <div class="screen-header"><div class="screen-title">🏎 Гараж</div><button class="back-btn" id="backBtn">← Назад</button></div>
+      <div id="garageList"></div>
+    </div>
+
+    <div class="screen" id="countriesView">
+      <div class="screen-header"><div class="screen-title">🌍 Страны</div><button class="back-btn" id="backFromCountries">← Назад</button></div>
+      <div id="countriesList"></div>
+    </div>
+
+    <div class="screen" id="exchangeView">
+      <div class="screen-header"><div class="screen-title">💱 Обмен валют</div><button class="back-btn" id="backFromExchange">← Назад</button></div>
+      <div class="exchange-form">
+        <div class="exchange-row-select">
+          <select class="exchange-select" id="fromCurrency"></select>
+          <select class="exchange-select" id="toCurrency"></select>
+        </div>
+        <input type="number" class="exchange-amount" id="exchangeAmount" placeholder="Сумма" min="1">
+        <div class="exchange-result" id="exchangeResult">Выберите валюты</div>
+        <button class="exchange-btn" id="doExchangeBtn">Обменять</button>
+      </div>
+      <div style="font-size:13px;color:#888;margin-bottom:10px">Твои балансы:</div>
+      <div id="balancesList"></div>
+    </div>
+
+    <div class="screen" id="marketView">
+      <div class="screen-header"><div class="screen-title">🏪 Рынок</div><button class="back-btn" id="backFromMarket">← Назад</button></div>
+      <div class="market-tabs">
+        <div class="market-tab active" data-tab="sell">Продать</div>
+        <div class="market-tab" data-tab="buy">Купить</div>
+      </div>
+      <div id="marketSellList"></div>
+      <div id="marketBuyList" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="bottom-panel" id="bottomPanel">
+    <div class="rarity-bar">
+      <div class="rarity-btn active" data-rarity="common" style="--r-color:#6b7280">Простой</div>
+      <div class="rarity-btn" data-rarity="epic" style="--r-color:#a855f7">Эпический</div>
+      <div class="rarity-btn" data-rarity="legendary" style="--r-color:#f59e0b">Легендарный</div>
+      <div class="rarity-btn" data-rarity="mythic" style="--r-color:#f43f5e">Мифический</div>
+    </div>
+    <div class="quantity-row">
+      <button class="qty-btn active" data-qty="1">×1</button>
+      <button class="qty-btn" data-qty="5">×5</button>
+    </div>
+    <div class="cost-preview" id="costPreview">Выберите страну</div>
+    <button class="spin-btn" id="spinBtn">КРУТИТЬ</button>
+  </div>
+
+  <div class="modal" id="winModal">
+    <div class="modal-content">
+      <div class="modal-rarity" id="winRarity"></div>
+      <div class="modal-car" id="winCarName"></div>
+      <div class="modal-country" id="winCountry"></div>
+      <div class="modal-buttons">
+        <button class="btn-garage" id="addToGarageBtn">В гараж</button>
+        <button class="btn-sell" id="sellNowBtn">Продать</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready(); tg.expand();
+tg.setHeaderColor('#0c0c0c'); tg.setBackgroundColor('#0c0c0c');
+
+const SAVE_VERSION = 3;
+const PRICE_UPDATE_INTERVAL = 10 * 60 * 1000;
+
+const countriesData = {
+  "🇷🇺 Россия":     { currency: "₽",  spinCost: 50,   startBalance: 900, rate: 1 },
+  "🇰🇷 Корея":      { currency: "₩",  spinCost: 80,   startBalance: 700, rate: 0.07 },
+  "🇩🇪 Германия":   { currency: "€",  spinCost: 120,  startBalance: 450, rate: 90 },
+  "🇯🇵 Япония":     { currency: "¥",  spinCost: 150,  startBalance: 400, rate: 0.6 },
+  "🇺🇸 США":        { currency: "$",  spinCost: 200,  startBalance: 350, rate: 85 },
+  "🇮🇹 Италия":     { currency: "€",  spinCost: 180,  startBalance: 380, rate: 90 },
+  "🇫🇷 Франция":    { currency: "€",  spinCost: 160,  startBalance: 400, rate: 90 },
+  "🇸🇪 Швеция":     { currency: "kr", spinCost: 250,  startBalance: 280, rate: 8 }
+};
+
+const RARITY = {
+  common:    { name: "Простой",     class: "rarity-common",    color: "#6b7280", emoji: "🚗", mult: 1 },
+  epic:      { name: "Эпический",   class: "rarity-epic",      color: "#a855f7", emoji: "🚙", mult: 2 },
+  legendary: { name: "Легендарный", class: "rarity-legendary", color: "#f59e0b", emoji: "🏎️", mult: 4 },
+  mythic:    { name: "Мифический",  class: "rarity-mythic",    color: "#f43f5e", emoji: "✨", mult: 6 }
+};
+
+const allCars = [
+  { name: "Lada Granta", country: "🇷🇺 Россия", weight: 60, price: 50, rarity: "common" },
+  { name: "Lada Vesta", country: "🇷🇺 Россия", weight: 48, price: 80, rarity: "common" },
+  { name: "Lada Niva Travel", country: "🇷🇺 Россия", weight: 42, price: 75, rarity: "common" },
+  { name: "Lada XRAY Cross", country: "🇷🇺 Россия", weight: 30, price: 95, rarity: "common" },
+  { name: "UAZ Patriot", country: "🇷🇺 Россия", weight: 25, price: 115, rarity: "common" },
+  { name: "UAZ Hunter", country: "🇷🇺 Россия", weight: 18, price: 100, rarity: "common" },
+  { name: "GAZelle Next", country: "🇷🇺 Россия", weight: 12, price: 160, rarity: "epic" },
+  { name: "Lada Vesta Sport", country: "🇷🇺 Россия", weight: 8, price: 140, rarity: "epic" },
+  { name: "Aurus Senat", country: "🇷🇺 Россия", weight: 1.0, price: 2900, rarity: "legendary" },
+  { name: "Marussia B2", country: "🇷🇺 Россия", weight: 0.25, price: 6800, rarity: "mythic" },
+  { name: "Hyundai Solaris", country: "🇰🇷 Корея", weight: 55, price: 105, rarity: "common" },
+  { name: "Kia Rio", country: "🇰🇷 Корея", weight: 50, price: 110, rarity: "common" },
+  { name: "Hyundai Creta", country: "🇰🇷 Корея", weight: 35, price: 145, rarity: "common" },
+  { name: "Kia Sportage", country: "🇰🇷 Корея", weight: 22, price: 200, rarity: "common" },
+  { name: "Hyundai Tucson", country: "🇰🇷 Корея", weight: 16, price: 230, rarity: "epic" },
+  { name: "Kia K5", country: "🇰🇷 Корея", weight: 11, price: 280, rarity: "epic" },
+  { name: "Hyundai Sonata", country: "🇰🇷 Корея", weight: 9, price: 300, rarity: "epic" },
+  { name: "Kia Sorento", country: "🇰🇷 Корея", weight: 7, price: 340, rarity: "epic" },
+  { name: "Genesis G70", country: "🇰🇷 Корея", weight: 2.2, price: 820, rarity: "legendary" },
+  { name: "Genesis GV80", country: "🇰🇷 Корея", weight: 1.3, price: 1300, rarity: "legendary" },
+  { name: "Hyundai Ioniq 5 N", country: "🇰🇷 Корея", weight: 0.8, price: 1600, rarity: "legendary" },
+  { name: "Hyundai N Vision 74", country: "🇰🇷 Корея", weight: 0.2, price: 7500, rarity: "mythic" },
+  { name: "Volkswagen Polo", country: "🇩🇪 Германия", weight: 45, price: 135, rarity: "common" },
+  { name: "Skoda Rapid", country: "🇩🇪 Германия", weight: 40, price: 130, rarity: "common" },
+  { name: "Volkswagen Golf", country: "🇩🇪 Германия", weight: 32, price: 185, rarity: "common" },
+  { name: "Skoda Octavia", country: "🇩🇪 Германия", weight: 26, price: 210, rarity: "common" },
+  { name: "Volkswagen Tiguan", country: "🇩🇪 Германия", weight: 15, price: 390, rarity: "epic" },
+  { name: "BMW 3 Series", country: "🇩🇪 Германия", weight: 8, price: 560, rarity: "epic" },
+  { name: "Mercedes C-Class", country: "🇩🇪 Германия", weight: 7, price: 630, rarity: "epic" },
+  { name: "Audi A4", country: "🇩🇪 Германия", weight: 6.5, price: 600, rarity: "epic" },
+  { name: "BMW 5 Series", country: "🇩🇪 Германия", weight: 3.8, price: 800, rarity: "legendary" },
+  { name: "Mercedes E-Class", country: "🇩🇪 Германия", weight: 3.2, price: 870, rarity: "legendary" },
+  { name: "Porsche Macan", country: "🇩🇪 Германия", weight: 2.4, price: 1200, rarity: "legendary" },
+  { name: "BMW X5", country: "🇩🇪 Германия", weight: 2.0, price: 1400, rarity: "legendary" },
+  { name: "Mercedes GLE", country: "🇩🇪 Германия", weight: 1.5, price: 1550, rarity: "legendary" },
+  { name: "Audi RS6", country: "🇩🇪 Германия", weight: 1.0, price: 1900, rarity: "legendary" },
+  { name: "Porsche 911", country: "🇩🇪 Германия", weight: 0.6, price: 2650, rarity: "mythic" },
+  { name: "Mercedes-AMG GT", country: "🇩🇪 Германия", weight: 0.35, price: 4200, rarity: "mythic" },
+  { name: "Porsche 918 Spyder", country: "🇩🇪 Германия", weight: 0.08, price: 12000, rarity: "mythic" },
+  { name: "Toyota Corolla", country: "🇯🇵 Япония", weight: 45, price: 220, rarity: "common" },
+  { name: "Mazda 3", country: "🇯🇵 Япония", weight: 38, price: 250, rarity: "common" },
+  { name: "Honda Civic", country: "🇯🇵 Япония", weight: 33, price: 240, rarity: "common" },
+  { name: "Toyota Camry", country: "🇯🇵 Япония", weight: 17, price: 380, rarity: "epic" },
+  { name: "Mazda 6", country: "🇯🇵 Япония", weight: 15, price: 360, rarity: "epic" },
+  { name: "Toyota RAV4", country: "🇯🇵 Япония", weight: 14, price: 440, rarity: "epic" },
+  { name: "Honda CR-V", country: "🇯🇵 Япония", weight: 12, price: 460, rarity: "epic" },
+  { name: "Subaru WRX", country: "🇯🇵 Япония", weight: 6, price: 550, rarity: "epic" },
+  { name: "Lexus ES", country: "🇯🇵 Япония", weight: 4, price: 700, rarity: "legendary" },
+  { name: "Lexus RX", country: "🇯🇵 Япония", weight: 2.8, price: 1000, rarity: "legendary" },
+  { name: "Toyota GR Supra", country: "🇯🇵 Япония", weight: 1.5, price: 1100, rarity: "legendary" },
+  { name: "Nissan GT-R", country: "🇯🇵 Япония", weight: 0.9, price: 2000, rarity: "mythic" },
+  { name: "Lexus LFA", country: "🇯🇵 Япония", weight: 0.18, price: 9000, rarity: "mythic" },
+  { name: "Ford Focus", country: "🇺🇸 США", weight: 40, price: 155, rarity: "common" },
+  { name: "Chevrolet Cruze", country: "🇺🇸 США", weight: 35, price: 145, rarity: "common" },
+  { name: "Ford Escape", country: "🇺🇸 США", weight: 24, price: 260, rarity: "common" },
+  { name: "Jeep Compass", country: "🇺🇸 США", weight: 18, price: 320, rarity: "common" },
+  { name: "Tesla Model 3", country: "🇺🇸 США", weight: 9, price: 850, rarity: "epic" },
+  { name: "Ford Mustang", country: "🇺🇸 США", weight: 5.5, price: 1100, rarity: "legendary" },
+  { name: "Chevrolet Camaro", country: "🇺🇸 США", weight: 4.5, price: 1050, rarity: "legendary" },
+  { name: "Dodge Challenger", country: "🇺🇸 США", weight: 3.5, price: 1200, rarity: "legendary" },
+  { name: "Tesla Model S Plaid", country: "🇺🇸 США", weight: 1.2, price: 2600, rarity: "mythic" },
+  { name: "Ford GT", country: "🇺🇸 США", weight: 0.3, price: 8000, rarity: "mythic" },
+  { name: "SSC Tuatara", country: "🇺🇸 США", weight: 0.07, price: 15500, rarity: "mythic" },
+  { name: "Fiat 500", country: "🇮🇹 Италия", weight: 38, price: 125, rarity: "common" },
+  { name: "Alfa Romeo Giulia", country: "🇮🇹 Италия", weight: 8, price: 650, rarity: "epic" },
+  { name: "Maserati Ghibli", country: "🇮🇹 Италия", weight: 2.8, price: 1300, rarity: "legendary" },
+  { name: "Ferrari Roma", country: "🇮🇹 Италия", weight: 0.65, price: 4200, rarity: "mythic" },
+  { name: "Lamborghini Huracan", country: "🇮🇹 Италия", weight: 0.4, price: 5800, rarity: "mythic" },
+  { name: "Ferrari SF90", country: "🇮🇹 Италия", weight: 0.18, price: 8000, rarity: "mythic" },
+  { name: "Lamborghini Aventador", country: "🇮🇹 Италия", weight: 0.1, price: 10000, rarity: "mythic" },
+  { name: "Pagani Huayra", country: "🇮🇹 Италия", weight: 0.04, price: 19000, rarity: "mythic" },
+  { name: "Renault Logan", country: "🇫🇷 Франция", weight: 48, price: 85, rarity: "common" },
+  { name: "Renault Arkana", country: "🇫🇷 Франция", weight: 28, price: 185, rarity: "common" },
+  { name: "Peugeot 3008", country: "🇫🇷 Франция", weight: 14, price: 330, rarity: "epic" },
+  { name: "Alpine A110", country: "🇫🇷 Франция", weight: 2.0, price: 1500, rarity: "legendary" },
+  { name: "Bugatti Chiron", country: "🇫🇷 Франция", weight: 0.05, price: 17000, rarity: "mythic" },
+  { name: "Volvo XC40", country: "🇸🇪 Швеция", weight: 20, price: 420, rarity: "epic" },
+  { name: "Volvo XC60", country: "🇸🇪 Швеция", weight: 14, price: 560, rarity: "epic" },
+  { name: "Volvo XC90", country: "🇸🇪 Швеция", weight: 6, price: 850, rarity: "legendary" },
+  { name: "Koenigsegg Jesko", country: "🇸🇪 Швеция", weight: 0.04, price: 20500, rarity: "mythic" },
+  { name: "Koenigsegg Gemera", country: "🇸🇪 Швеция", weight: 0.03, price: 23500, rarity: "mythic" }
+];
+
+const allCountries = Object.keys(countriesData);
+
+let balances = {}, garage = [], selectedCountry = null, lastWonCar = null, isSpinning = false, cars = [];
+let selectedRarity = "common", selectedQty = 1;
+let boostEndTime = 0, lastFreeBoostTime = 0, lastPriceUpdate = 0;
+const FREE_BOOST_COOLDOWN = 5 * 60 * 60 * 1000, BOOST_DURATION = 60 * 60 * 1000;
+
+let marketOffers = [
+  { name: "Lada Granta", country: "🇷🇺 Россия", basePrice: 70, rarity: "common" },
+  { name: "Hyundai Solaris", country: "🇰🇷 Корея", basePrice: 140, rarity: "common" },
+  { name: "Volkswagen Golf", country: "🇩🇪 Германия", basePrice: 220, rarity: "common" },
+  { name: "Toyota Camry", country: "🇯🇵 Япония", basePrice: 420, rarity: "epic" },
+  { name: "BMW 3 Series", country: "🇩🇪 Германия", basePrice: 620, rarity: "epic" },
+  { name: "Ford Mustang", country: "🇺🇸 США", basePrice: 1250, rarity: "legendary" },
+  { name: "Porsche 911", country: "🇩🇪 Германия", basePrice: 2900, rarity: "mythic" },
+  { name: "Ferrari Roma", country: "🇮🇹 Италия", basePrice: 4800, rarity: "mythic" }
+];
+
+const userId = tg.initDataUnsafe?.user?.id || 'guest';
+const storageKey = `car_spinner_v8_${userId}`;
+
+function initBalances() {
+  allCountries.forEach(c => { if (balances[c] === undefined) balances[c] = countriesData[c].startBalance; });
+}
+
+function saveData() {
+  localStorage.setItem(storageKey, JSON.stringify({
+    version: SAVE_VERSION, balances, garage, selectedCountry,
+    lastFreeBoostTime, boostEndTime, lastPriceUpdate, marketOffers
+  }));
+}
+
+function loadData() {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      balances = data.balances || {};
+      garage = data.garage || [];
+      selectedCountry = data.selectedCountry || null;
+      lastFreeBoostTime = data.lastFreeBoostTime || 0;
+      boostEndTime = data.boostEndTime || 0;
+      lastPriceUpdate = data.lastPriceUpdate || 0;
+      if (data.marketOffers) marketOffers = data.marketOffers;
+    } catch(e) {}
+  }
+  initBalances();
+  if (Date.now() - lastPriceUpdate > PRICE_UPDATE_INTERVAL) updateMarketPrices();
+  updateExchangeRates();
+  updateUI(); filterCars(); checkBoostStatus();
+}
+
+function updateMarketPrices() {
+  marketOffers = marketOffers.map(o => ({
+    ...o,
+    price: Math.floor(o.basePrice * (0.85 + Math.random() * 0.35))
+  }));
+  lastPriceUpdate = Date.now();
+  saveData();
+}
+
+function updateExchangeRates() {
+  allCountries.forEach(c => {
+    countriesData[c].currentRate = +(countriesData[c].rate * (0.95 + Math.random() * 0.1)).toFixed(4);
+  });
+}
+
+function getCurrency() { return selectedCountry ? countriesData[selectedCountry].currency : ""; }
+function getBaseCost() { return selectedCountry ? countriesData[selectedCountry].spinCost : 0; }
+function getFinalCost() { return getBaseCost() * RARITY[selectedRarity].mult * selectedQty; }
+function getBalance() { return selectedCountry ? (balances[selectedCountry] || 0) : 0; }
+function isBoostActive() { return Date.now() < boostEndTime; }
+
+function updateUI() {
+  document.getElementById('balance').textContent = selectedCountry ? `${getBalance()} ${getCurrency()}` : "—";
+  const preview = document.getElementById('costPreview');
+  if (selectedCountry) {
+    let t = `Стоимость: <b>${getFinalCost()} ${getCurrency()}</b>`;
+    if (isBoostActive()) t += ` · <span style="color:#4ade80">×10 активен</span>`;
+    preview.innerHTML = t;
+  } else preview.textContent = "Сначала выберите страну";
+  document.getElementById('currentCountryLabel').textContent = selectedCountry || "Выберите страну в меню ☰";
+}
+
+function filterCars() {
+  if (!selectedCountry) { cars = []; }
+  else {
+    const cc = allCars.filter(c => c.country === selectedCountry);
+    if (selectedRarity === "common") cars = cc;
+    else if (selectedRarity === "epic") cars = cc.filter(c => ["epic","legendary","mythic"].includes(c.rarity));
+    else if (selectedRarity === "legendary") cars = cc.filter(c => ["legendary","mythic"].includes(c.rarity));
+    else cars = cc.filter(c => c.rarity === "mythic");
+    if (!cars.length) cars = cc;
+  }
+  buildList();
+}
+
+function checkBoostStatus() {
+  const now = Date.now(), freeBtn = document.getElementById('freeBoostBtn'), active = document.getElementById('boostActive');
+  if (now < boostEndTime) { freeBtn.classList.remove('show'); active.classList.add('show'); updateBoostTimer(); }
+  else if (now - lastFreeBoostTime >= FREE_BOOST_COOLDOWN) { freeBtn.classList.add('show'); active.classList.remove('show'); }
+  else { freeBtn.classList.remove('show'); active.classList.remove('show'); }
+}
+function updateBoostTimer() {
+  const left = Math.max(0, boostEndTime - Date.now());
+  document.getElementById('boostTimer').textContent = `${String(Math.floor(left/60000)).padStart(2,'0')}:${String(Math.floor((left%60000)/1000)).padStart(2,'0')}`;
+  if (left > 0) setTimeout(updateBoostTimer, 1000); else { checkBoostStatus(); updateUI(); }
+}
+document.getElementById('freeBoostBtn').onclick = () => {
+  if (Date.now() - lastFreeBoostTime < FREE_BOOST_COOLDOWN) return;
+  lastFreeBoostTime = Date.now(); boostEndTime = Date.now() + BOOST_DURATION;
+  saveData(); checkBoostStatus(); updateUI();
+  document.getElementById('result').textContent = "🎁 ×10 активирован на 1 час!";
+};
+setInterval(checkBoostStatus, 30000);
+
+const sideMenu = document.getElementById('sideMenu'), menuOverlay = document.getElementById('menuOverlay');
+function openMenu(){sideMenu.classList.add('open');menuOverlay.classList.add('show')}
+function closeMenu(){sideMenu.classList.remove('open');menuOverlay.classList.remove('show')}
+document.getElementById('hamburger').onclick = openMenu;
+document.getElementById('closeMenu').onclick = closeMenu;
+menuOverlay.onclick = closeMenu;
+
+function hideAll() {
+  document.getElementById('spinnerView').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('bottomPanel').style.display = 'none';
+}
+function showSpinner() {
+  hideAll();
+  document.getElementById('spinnerView').style.display = 'flex';
+  document.getElementById('bottomPanel').style.display = 'block';
+}
+
+document.getElementById('menuGarage').onclick = () => { closeMenu(); openGarage(); };
+document.getElementById('menuCountries').onclick = () => { closeMenu(); openCountries(); };
+document.getElementById('menuExchange').onclick = () => { closeMenu(); openExchange(); };
+document.getElementById('menuMarket').onclick = () => { closeMenu(); openMarket(); };
+document.getElementById('menuSpin').onclick = () => { closeMenu(); showSpinner(); };
+
+document.querySelectorAll('.rarity-btn').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.rarity-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); selectedRarity = b.dataset.rarity; filterCars(); updateUI();
+});
+document.querySelectorAll('.qty-btn').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.qty-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); selectedQty = +b.dataset.qty; updateUI();
+});
+
+const itemWidth = 148, listEl = document.getElementById('spinnerList');
+const spinBtn = document.getElementById('spinBtn'), resultEl = document.getElementById('result');
+const spinnerContainer = document.getElementById('spinnerContainer'), centerFrame = document.getElementById('centerFrame');
+
+function buildList() {
+  if (!cars.length) { listEl.innerHTML = `<div class="car-item" style="width:100%;border:none;background:transparent"><div class="car-name" style="opacity:.5">Нет машин</div></div>`; return; }
+  let h = '';
+  for (let i = 0; i < 40; i++) cars.forEach(car => {
+    const r = RARITY[car.rarity] || RARITY.common;
+    h += `<div class="car-item" style="--rarity-color:${r.color}"><div class="car-emoji">${r.emoji}</div><div class="car-name">${car.name}</div><div class="car-rarity" style="color:${r.color}">${r.name}</div></div>`;
+  });
+  listEl.innerHTML = h;
+}
+
+function getRandomCar() {
+  if (!cars.length) return null;
+  const total = cars.reduce((s,c) => s + c.weight, 0);
+  let r = Math.random() * total;
+  for (const car of cars) { if (r < car.weight) return car; r -= car.weight; }
+  return cars[0];
+}
+
+function createSparks() {
+  const w = document.querySelector('.spinner-wrapper');
+  for (let i = 0; i < 12; i++) {
+    const s = document.createElement('div'); s.className = 'spark';
+    s.style.background = ['#ff6b00','#ff9500','#f59e0b','#fff'][i%4];
+    s.style.left = '50%'; s.style.top = '50%';
+    const a = Math.PI*2*i/12, d = 40+Math.random()*50;
+    s.style.setProperty('--tx', Math.cos(a)*d+'px'); s.style.setProperty('--ty', Math.sin(a)*d+'px');
+    w.appendChild(s); setTimeout(() => s.remove(), 800);
+  }
+}
+
+spinBtn.onclick = async () => {
+  if (isSpinning) return;
+  if (!selectedCountry) { resultEl.textContent = "Сначала выберите страну!"; return; }
+  const cost = getFinalCost();
+  if (getBalance() < cost) { resultEl.textContent = `Недостаточно ${getCurrency()}!`; return; }
+  balances[selectedCountry] -= cost; updateUI(); saveData();
+  isSpinning = true; spinBtn.disabled = true; resultEl.textContent = '';
+  spinnerContainer.classList.add('spinning'); centerFrame.classList.add('spinning');
+  let lastWinner = null;
+  for (let i = 0; i < selectedQty; i++) {
+    const winner = getRandomCar(); lastWinner = winner;
+    const idx = cars.findIndex(c => c.name === winner.name);
+    const target = (20+i)*cars.length + idx;
+    const finalX = -(target*itemWidth - (spinnerContainer.offsetWidth/2 - itemWidth/2));
+    listEl.style.transition = 'none'; listEl.style.transform = 'translateX(0)'; listEl.offsetHeight;
+    const dur = 4.8 + i*0.4;
+    listEl.style.transition = `transform ${dur}s cubic-bezier(0.12,0.8,0.15,1)`;
+    listEl.style.transform = `translateX(${finalX}px)`;
+    await new Promise(r => setTimeout(r, dur*1000+80));
+  }
+  spinnerContainer.classList.remove('spinning'); centerFrame.classList.remove('spinning');
+  centerFrame.classList.add('stopped'); createSparks();
+  setTimeout(() => centerFrame.classList.remove('stopped'), 600);
+  lastWonCar = lastWinner; isSpinning = false; spinBtn.disabled = false;
+  showWinModal(lastWinner);
+};
+
+function showWinModal(car) {
+  const r = RARITY[car.rarity] || RARITY.common;
+  document.getElementById('winRarity').textContent = r.name;
+  document.getElementById('winRarity').className = 'modal-rarity ' + r.class;
+  document.getElementById('winCarName').textContent = car.name;
+  document.getElementById('winCountry').textContent = car.country;
+  document.getElementById('winModal').classList.add('active');
+}
+
+document.getElementById('addToGarageBtn').onclick = () => {
+  if (lastWonCar) {
+    for (let i = 0; i < selectedQty; i++) garage.push({...lastWonCar, id: Date.now()+i});
+    saveData(); resultEl.textContent = `${lastWonCar.name} ×${selectedQty} → в гараж`;
+  }
+  document.getElementById('winModal').classList.remove('active');
+};
+document.getElementById('sellNowBtn').onclick = () => {
+  if (lastWonCar && selectedCountry) {
+    const p = Math.floor(lastWonCar.price * 0.7) * selectedQty;
+    balances[selectedCountry] += p; updateUI(); saveData();
+    resultEl.textContent = `+${p} ${getCurrency()}`;
+  }
+  document.getElementById('winModal').classList.remove('active');
+};
+
+function openGarage() { hideAll(); document.getElementById('garageView').classList.add('active'); renderGarage(); }
+document.getElementById('backBtn').onclick = showSpinner;
+function renderGarage() {
+  const list = document.getElementById('garageList');
+  if (!garage.length) { list.innerHTML = `<div class="empty">Гараж пуст</div>`; return; }
+  list.innerHTML = garage.map((car,i) => {
+    const r = RARITY[car.rarity]||RARITY.common;
+    const cur = countriesData[car.country]?.currency||"";
+    return `<div class="garage-item"><div><div class="item-name">${r.emoji} ${car.name}</div><div class="item-info">${car.country} · <span style="color:${r.color}">${r.name}</span> · ${Math.floor(car.price*0.75)} ${cur}</div></div><button class="action-btn" onclick="sellFromGarage(${i})">Продать</button></div>`;
+  }).join('');
+}
+window.sellFromGarage = i => {
+  const car = garage[i]; const p = Math.floor(car.price*0.75);
+  balances[car.country] = (balances[car.country]||0) + p;
+  garage.splice(i,1); updateUI(); saveData(); renderGarage();
+};
+
+function openCountries() { hideAll(); document.getElementById('countriesView').classList.add('active'); renderCountries(); }
+document.getElementById('backFromCountries').onclick = showSpinner;
+function renderCountries() {
+  document.getElementById('countriesList').innerHTML = allCountries.map(c => {
+    const d = countriesData[c], bal = balances[c]||d.startBalance, cnt = allCars.filter(x=>x.country===c).length;
+    return `<div class="country-item ${selectedCountry===c?'active':''}" onclick="selectCountry('${c}')"><div><div class="country-name">${c}</div><div class="country-meta">${cnt} машин · крутка ${d.spinCost} ${d.currency}</div></div><div class="country-balance">${bal} ${d.currency}</div></div>`;
+  }).join('');
+}
+window.selectCountry = c => { selectedCountry = c; filterCars(); updateUI(); saveData(); showSpinner(); };
+
+function openExchange() { hideAll(); document.getElementById('exchangeView').classList.add('active'); renderExchange(); }
+document.getElementById('backFromExchange').onclick = showSpinner;
+function renderExchange() {
+  const from = document.getElementById('fromCurrency'), to = document.getElementById('toCurrency');
+  from.innerHTML = to.innerHTML = allCountries.map(c => `<option value="${c}">${c} (${balances[c]||0} ${countriesData[c].currency})</option>`).join('');
+  document.getElementById('balancesList').innerHTML = allCountries.map(c => `<div class="exchange-row"><div class="item-name">${c}</div><div class="item-info">${balances[c]||0} ${countriesData[c].currency}</div></div>`).join('');
+  updateExchangePreview();
+}
+function updateExchangePreview() {
+  const from = document.getElementById('fromCurrency').value, to = document.getElementById('toCurrency').value;
+  const amount = +document.getElementById('exchangeAmount').value || 0;
+  const el = document.getElementById('exchangeResult');
+  if (!from || !to || from === to || amount <= 0) { el.textContent = "Выберите разные валюты и сумму"; return; }
+  const fr = countriesData[from].currentRate || countriesData[from].rate;
+  const tr = countriesData[to].currentRate || countriesData[to].rate;
+  const received = Math.floor(amount * fr / tr * 0.95);
+  el.innerHTML = `Получите: <b>${received} ${countriesData[to].currency}</b> <span style="color:#888">(комиссия 5%)</span>`;
+}
+document.getElementById('fromCurrency').onchange = document.getElementById('toCurrency').onchange = document.getElementById('exchangeAmount').oninput = updateExchangePreview;
+document.getElementById('doExchangeBtn').onclick = () => {
+  const from = document.getElementById('fromCurrency').value, to = document.getElementById('toCurrency').value;
+  const amount = +document.getElementById('exchangeAmount').value || 0;
+  if (!from || !to || from === to || amount <= 0) return;
+  if ((balances[from]||0) < amount) { alert("Недостаточно средств"); return; }
+  const fr = countriesData[from].currentRate || countriesData[from].rate;
+  const tr = countriesData[to].currentRate || countriesData[to].rate;
+  const received = Math.floor(amount * fr / tr * 0.95);
+  balances[from] -= amount; balances[to] = (balances[to]||0) + received;
+  saveData(); updateUI(); renderExchange();
+  document.getElementById('exchangeAmount').value = '';
+  document.getElementById('exchangeResult').innerHTML = `✅ +${received} ${countriesData[to].currency}`;
+};
+
+function openMarket() { hideAll(); document.getElementById('marketView').classList.add('active'); renderMarketSell(); renderMarketBuy(); }
+document.getElementById('backFromMarket').onclick = showSpinner;
+document.querySelectorAll('.market-tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.market-tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  const sell = t.dataset.tab === 'sell';
+  document.getElementById('marketSellList').style.display = sell ? 'block' : 'none';
+  document.getElementById('marketBuyList').style.display = sell ? 'none' : 'block';
+});
+
+function renderMarketSell() {
+  const list = document.getElementById('marketSellList');
+  if (!garage.length) { list.innerHTML = `<div class="empty">Нет машин для продажи</div>`; return; }
+  list.innerHTML = garage.map((car,i) => {
+    const r = RARITY[car.rarity]||RARITY.common, cur = countriesData[car.country]?.currency||"";
+    const price = Math.floor(car.price * 0.8);
+    return `<div class="market-item"><div><div class="item-name">${r.emoji} ${car.name}</div><div class="item-info">${car.country} · ${r.name} · ${price} ${cur}</div></div><button class="action-btn" onclick="sellToMarket(${i})">Продать</button></div>`;
+  }).join('');
+}
+window.sellToMarket = i => {
+  const car = garage[i], price = Math.floor(car.price * 0.8);
+  balances[car.country] = (balances[car.country]||0) + price;
+  garage.splice(i,1); saveData(); updateUI(); renderMarketSell();
+  alert(`Продано за ${price} ${countriesData[car.country].currency}`);
+};
+
+function renderMarketBuy() {
+  if (Date.now() - lastPriceUpdate > PRICE_UPDATE_INTERVAL) updateMarketPrices();
+  document.getElementById('marketBuyList').innerHTML = marketOffers.map((car,i) => {
+    const r = RARITY[car.rarity]||RARITY.common, cur = countriesData[car.country]?.currency||"";
+    return `<div class="market-item"><div><div class="item-name">${r.emoji} ${car.name}</div><div class="item-info">${car.country} · ${r.name} · <b>${car.price} ${cur}</b></div></div><button class="action-btn buy" onclick="buyFromMarket(${i})">Купить</button></div>`;
+  }).join('');
+}
+window.buyFromMarket = i => {
+  const car = marketOffers[i];
+  if ((balances[car.country]||0) < car.price) { alert(`Недостаточно ${countriesData[car.country].currency}`); return; }
+  balances[car.country] -= car.price;
+  garage.push({...car, id: Date.now(), weight: 1});
+  saveData(); updateUI(); alert(`${car.name} куплена!`); renderMarketBuy();
+};
+
+loadData();
+</script>
+</body>
+</html>
